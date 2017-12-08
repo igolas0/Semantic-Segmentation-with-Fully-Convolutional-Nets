@@ -54,20 +54,46 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :param num_classes: Number of classes to classify
     :return: The Tensor for the last layer of output
     """
-    #encoder part with fully convolutional layers
-    conv_1x1 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, strides=(1,1), padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    #decoder part:
-    upsample1_out = tf.layers.conv2d_transpose(conv_1x1, num_classes, 4, strides=(2, 2), padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    tf.reshape(vgg_layer4_out,[-1,-1,-1,512])
-    tf.Print(vgg_layer4_out, [tf.size(vgg_layer4_out), "whatever"])
-    tf.reshape(upsample1_out,tf.size(vgg_layer4_out))
-    skip1 = tf.add(upsample1_out, vgg_layer4_out)
-    upsample2_out = tf.layers.conv2d_transpose(skip1, num_classes, 4, strides=(2, 2), padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-    tf.reshape(upsample2_out,[-1,-1,-1,512])
-    skip2 = tf.add(upsample2_out, vgg_layer3_out)
-    output_layer = tf.layers.conv2d_transpose(skip2, num_classes, 16, strides=(8, 8), padding='same', kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+    ###############################################
+    # encoder part with fully convolutional layers #
+    ###############################################
 
-    return output_layer
+    # conv 1x1 instead of fully connected layer over layer 7
+    conv_1x1_layer7 = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, strides=(1,1), padding='same', 
+                                       kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+                                       kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+    # conv 1x1 instead of fully connected layer over layer 4
+    conv_1x1_layer4 = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, strides=(1,1), padding='same', 
+                                       kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+                                       kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+    # conv 1x1 instead of fully connected layer over layer 3
+    conv_1x1_layer3 = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, strides=(1,1), padding='same', 
+                                       kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+                                       kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    #       decoder part:
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    #upsampling and skip connections:
+    upsample_layer7 = tf.layers.conv2d_transpose(conv_1x1_layer7, num_classes, 4, strides=(2, 2), 
+                                                 padding='same', 
+                                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+                                                 kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+
+    skip1 = tf.add(upsample_layer7, conv_1x1_layer4)
+
+    upsample_skip1 = tf.layers.conv2d_transpose(skip1, num_classes, 4, strides=(2, 2), padding='same', 
+                                                kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+                                                kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+
+    skip2 = tf.add(upsample_skip1, conv_1x1_layer3)
+
+    nn_last_layer = tf.layers.conv2d_transpose(skip2, num_classes, 16, strides=(8, 8), padding='same',
+                                                 kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3),
+                                                 kernel_initializer=tf.random_normal_initializer(stddev=0.01))
+
+    return nn_last_layer
 
 tests.test_layers(layers)
 
@@ -81,8 +107,16 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     :param num_classes: Number of classes to classify
     :return: Tuple of (logits, train_op, cross_entropy_loss)
     """
-    # TODO: Implement function
-    return None, None, None
+    #reshape logits and labels two 2D tensors with one dimension matching no. of classes
+    logits = tf.reshape(nn_last_layer, (-1, num_classes))
+    labels = tf.reshape(correct_label, (-1, num_classes))
+    #define loss function
+    ss_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits, labels)) 
+    #define optimizer and train operation
+    optimizer = tf.train.AdamOptimizer(learning_rate= learning_rate)
+    train_op = optimizer.minimize(cross_entropy_loss)
+
+    return logits, train_op, ss_entropy_loss
 tests.test_optimize(optimize)
 
 
