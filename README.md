@@ -31,7 +31,7 @@ The best results were achieved training for 50 epochs and choosing a learning ra
 
 Training for more epochs (up to 100) and changes to the L2 regularizer did not help to further improve the results or decrease the loss.
 
-You can find the the complete results (all infered images out of the test images) in the './runs/Loss_0p02_epochs50_Learningrate_1e-4/' folder.
+You can find the the complete results (all infered images out of the test images) in the [runs folder](./runs/Loss_0p02_epochs50_Learningrate_1e-4/).
 
 ### Setup
 ##### Frameworks and Packages
