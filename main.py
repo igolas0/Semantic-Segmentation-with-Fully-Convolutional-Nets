@@ -1,3 +1,4 @@
+import time
 import os.path
 import tensorflow as tf
 import helper
@@ -111,12 +112,12 @@ def optimize(nn_last_layer, correct_label, learning_rate, num_classes):
     logits = tf.reshape(nn_last_layer, (-1, num_classes))
     labels = tf.reshape(correct_label, (-1, num_classes))
     #define loss function
-    ss_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits, labels)) 
+    cross_entropy_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=labels)) 
     #define optimizer and train operation
     optimizer = tf.train.AdamOptimizer(learning_rate= learning_rate)
     train_op = optimizer.minimize(cross_entropy_loss)
 
-    return logits, train_op, ss_entropy_loss
+    return logits, train_op, cross_entropy_loss
 tests.test_optimize(optimize)
 
 
@@ -135,9 +136,24 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param keep_prob: TF Placeholder for dropout keep probability
     :param learning_rate: TF Placeholder for learning rate
     """
-    # TODO: Implement function
-    pass
-tests.test_train_nn(train_nn)
+
+    #SET PARAMETERS
+    KEEP_PROB = 0.5
+    LEARNING_RATE = 1e-3
+
+    for epoch in range(epochs):
+        s_time = time.time()
+        for image, label in get_batches_fn(batch_size):
+            #Training the Network
+            _, loss = sess.run([train_op, cross_entropy_loss],
+                                feed_dict={input_image: image, correct_label: label, 
+                                keep_prob: KEEP_PROB, learning_rate: LEARNING_RATE})
+            print(loss)
+                # Print data on the learning process
+        print("Epoch: {}".format(epoch + 1), "/ {}".format(epochs), " Loss: {:.3f}".format(loss))  ##, " Time: ", 
+             # str(timedelta(seconds=(time.time() - s_time))))
+
+#tests.test_train_nn(train_nn)
 
 
 def run():
@@ -163,12 +179,28 @@ def run():
         # OPTIONAL: Augment Images for better results
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
-        # TODO: Build NN using load_vgg, layers, and optimize function
+        #Build NN using load_vgg, layers, and optimize function
+        # Loading VGG16 
+        input_image, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
+        #build FCN and return output layer
+        nn_last_layer = layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes)
+        #define TF placeholders for labels and learning rate
+        correct_label = tf.placeholder(dtype = tf.float32, shape = (None, None, None, num_classes))
+        learning_rate = tf.placeholder(dtype = tf.float32)
+        #optimize function
+        logits, train_op, cross_entropy_loss = optimize(nn_last_layer, correct_label, learning_rate, num_classes)
+        #initialize session variables
+        sess.run(tf.global_variables_initializer())
+        #define epochs, batch_size, keep_prob
+        epochs = 10
+        batch_size = 10
+        #Train NN using the train_nn function
+        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
+                 correct_label, keep_prob, learning_rate)
+        # Save inference data using helper.save_inference_samples
+        helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
 
-        # TODO: Train NN using the train_nn function
 
-        # TODO: Save inference data using helper.save_inference_samples
-        #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
 
         # OPTIONAL: Apply the trained model to a video
 
