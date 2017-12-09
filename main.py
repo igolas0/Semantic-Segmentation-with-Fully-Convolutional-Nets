@@ -56,7 +56,7 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     :return: The Tensor for the last layer of output
     """
     ###############################################
-    # encoder part with fully convolutional layers #
+    # build encoder part with fully convolutional layers #
     ###############################################
 
     # conv 1x1 instead of fully connected layer over layer 7
@@ -139,10 +139,9 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
 
     #SET PARAMETERS
     KEEP_PROB = 0.5
-    LEARNING_RATE = 1e-3
+    LEARNING_RATE = 1e-4
 
     for epoch in range(epochs):
-        s_time = time.time()
         for image, label in get_batches_fn(batch_size):
             #Training the Network
             _, loss = sess.run([train_op, cross_entropy_loss],
@@ -150,8 +149,7 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
                                 keep_prob: KEEP_PROB, learning_rate: LEARNING_RATE})
             print(loss)
                 # Print data on the learning process
-        print("Epoch: {}".format(epoch + 1), "/ {}".format(epochs), " Loss: {:.3f}".format(loss))  ##, " Time: ", 
-             # str(timedelta(seconds=(time.time() - s_time))))
+        print("Epoch: {}".format(epoch + 1), "/ {}".format(epochs), " Loss: {:.3f}".format(loss))  
 
 #tests.test_train_nn(train_nn)
 
@@ -166,44 +164,36 @@ def run():
     # Download pretrained vgg model
     helper.maybe_download_pretrained_vgg(data_dir)
 
-    # OPTIONAL: Train and Inference on the cityscapes dataset instead of the Kitti dataset.
-    # You'll need a GPU with at least 10 teraFLOPS to train on.
-    #  https://www.cityscapes-dataset.com/
-
     with tf.Session() as sess:
         # Path to vgg model
         vgg_path = os.path.join(data_dir, 'vgg')
         # Create function to get batches
         get_batches_fn = helper.gen_batch_function(os.path.join(data_dir, 'data_road/training'), image_shape)
 
-        # OPTIONAL: Augment Images for better results
-        #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
-
-        #Build NN using load_vgg, layers, and optimize function
         # Loading VGG16 
         input_image, keep_prob, vgg_layer3_out, vgg_layer4_out, vgg_layer7_out = load_vgg(sess, vgg_path)
-        #build FCN and return output layer
+
+        # build FCN and return output layer
         nn_last_layer = layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes)
-        #define TF placeholders for labels and learning rate
+
+        # define TF placeholders for labels and learning rate
         correct_label = tf.placeholder(dtype = tf.float32, shape = (None, None, None, num_classes))
         learning_rate = tf.placeholder(dtype = tf.float32)
-        #optimize function
+
+        # optimize function
         logits, train_op, cross_entropy_loss = optimize(nn_last_layer, correct_label, learning_rate, num_classes)
-        #initialize session variables
+        # initialize session variables
         sess.run(tf.global_variables_initializer())
-        #define epochs, batch_size, keep_prob
-        epochs = 10
+
+        # define epochs &  batch_size
+        epochs = 50
         batch_size = 10
-        #Train NN using the train_nn function
+        # Train NN using the train_nn function
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss, input_image,
                  correct_label, keep_prob, learning_rate)
+
         # Save inference data using helper.save_inference_samples
         helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
-
-
-
-        # OPTIONAL: Apply the trained model to a video
-
 
 if __name__ == '__main__':
     run()
